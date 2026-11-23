@@ -1,0 +1,50 @@
+[
+  {
+    "id": "WF-1001",
+    "title": "Sample plugin stored XSS",
+    "description": "A stored cross-site scripting issue in the sample plugin.",
+    "severity": "high",
+    "cvss": { "base_score": 8.1 },
+    "cve": "CVE-2026-1111",
+    "software": [
+      { "type": "plugin", "slug": "sample-plugin", "affected_versions": { "lower": "1.0", "upper": "2.0" }, "patched_versions": [ { "lower": "2.1", "upper": "2.1" } ] }
+    ],
+    "published": "2026-01-02T03:04:05Z",
+    "modified": "2026-01-03T03:04:05Z"
+  },
+  {
+    "id": "WF-1002",
+    "title": "Sample core authentication bypass",
+    "description": "Authentication bypass in sample core range.",
+    "severity": "critical",
+    "cvss": { "base_score": 9.8 },
+    "cve": "CVE-2026-2222",
+    "software": [
+      { "type": "core", "slug": "wordpress", "affected_versions": { "lower": "6.0", "upper": "6.4" } }
+    ]
+  },
+  {
+    "id": "WF-1003",
+    "title": "Sample theme file inclusion",
+    "description": "Local file inclusion in sample theme.",
+    "severity": "low",
+    "software": [
+      { "type": "theme", "slug": "sample-theme", "affected_ranges": [ { "lower": "1.0", "upper": "1.2" }, { "lower": "1.5", "upper": "1.5" } ] }
+    ]
+  },
+  {
+    "id": "WF-1004",
+    "title": "Record without software",
+    "description": "This record must be skipped.",
+    "severity": "medium"
+  },
+  {
+    "id": "WF-1005",
+    "title": "CVSS-only severity record",
+    "description": "Severity derived from CVSS.",
+    "cvss": { "base_score": 7.5 },
+    "software": [
+      { "type": "plugin", "slug": "cvss-plugin", "affected_versions": { "lower": "1.0", "upper": "" } }
+    ]
+  }
+]

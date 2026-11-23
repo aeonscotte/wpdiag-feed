@@ -1,0 +1,9 @@
+keys/*
+!keys/.gitkeep
+data/packs/*
+!data/packs/.gitkeep
+data/work/*
+!data/work/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+config.php
