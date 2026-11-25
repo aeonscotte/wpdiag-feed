@@ -19,12 +19,17 @@ Minimal, self-contained distribution service for generic vulnerability intellige
 ## Refresh
 
 ```
-php bin/refresh.php            # hourly guard + lock
-php bin/refresh.php --force    # bypass the interval guard
+php bin/refresh.php              # six-hour guard + lock
+php bin/refresh.php --force      # bypass the scheduled window (30-minute hard floor)
+php bin/refresh.php --status     # print the durable fetch state as JSON
 php bin/refresh.php --file=fixtures/wordfence-sample.json --force   # offline fixture mode
 ```
 
-Crontab (hourly; more frequent runs are harmless due to the interval guard):
+The live guard is persisted in `data/state/fetch-state.json` **before** the upstream request. A crash, failed build, or container restart therefore cannot trigger a second fetch inside the window. Fixture builds (`--file`) do not touch the live window.
+
+The default window is six hours (`refresh_interval_seconds = 21600`). A `429` extends the guard using `Retry-After` when supplied; otherwise the normal six-hour window applies. `--force` cannot bypass a 30-minute hard floor or an active 429 backoff. If you later want the documented hourly cadence, set `refresh_interval_seconds = 3600`; the durable guard still prevents bursts.
+
+Crontab (hourly; the durable guard makes more frequent runs harmless):
 
 ```
 17 * * * * php /var/www/wpdiag-feed/bin/refresh.php >> /dev/null 2>&1
@@ -37,8 +42,17 @@ Exit codes: `0` ok, `2` build/fetch failed (old pack retained), `3` skipped, `4`
 - `GET /latest` — latest signed pack (ZIP).
 - `GET /v/{version}` — specific pack.
 - `GET /meta.json` — index metadata.
+- `GET /status.json` — last fetch attempt/success, last status, next allowed time (including 429 backoff), current pack version.
 - `GET /healthz` — liveness.
 - `GET /` — plain text status.
+
+`/status.json` does not expose the API key, error details, or filesystem paths.
+
+## GitHub Actions + GitHub Releases
+
+A ready-to-use workflow lives in `deploy/github-actions/`. It runs the refresh on GitHub Actions and publishes the signed pack as a GitHub Release asset.
+
+The workflow file must be copied to `.github/workflows/feed-release.yml`. See `deploy/github-actions/README.md` for the repository secrets, fixture/live modes, state branch, and plugin URL.
 
 ## Verify
 
@@ -47,15 +61,27 @@ php bin/verify-pack.php data/packs/pack-<version>.wpdiag-pack
 tests/verify.sh
 ```
 
-The verification script builds signed fixture packs without a Wordfence key, checks tamper rejection, serving, interval skipping, retention, and failure retention.
+The verification script runs in a temporary data tree, so it does not touch production packs or signing keys. It covers the normalizer against a real v3-shaped fixture, the durable interval guard across a new PHP process, fixture build, signature verification, tamper rejection, serving, retention, failure retention, and release asset staging.
 
 ## Plugin configuration
 
 Set the plugin's feed URL to `https://feed.example.com/latest` and keep the plugin's refresh interval at or above the server's interval.
 
+## Container deployment
+
+Mount these paths as persistent volumes:
+
+- `data/state` — the durable fetch guard (required to survive restarts)
+- `data/packs` — published packs
+- `keys` — signing key
+- `data/logs` — refresh log
+
+`data/work` may be ephemeral. If you prefer to reuse an existing volume, point `state_dir` at a persistent path such as `data/packs`; the state file stays outside `public/` and is never served. Run a single refresher process (or a Kubernetes CronJob with `concurrencyPolicy: Forbid`). Web containers can be stateless and read the packs volume; the refresh lock is only reliable for one writer.
+
 ## Security notes
 
 - The signing secret never touches `public/` or the plugin.
+- The Wordfence API key stays in the server environment or `config.php`; it is never sent to plugin installations.
 - Incoming packs are parsed as data only; nothing is executed.
 - Rotate keys by generating a new keypair and republishing the public key; previously published packs become invalid, which is expected.
 - Serve over TLS and restrict `public/` to static pack downloads.

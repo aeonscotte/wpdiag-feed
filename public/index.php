@@ -25,6 +25,29 @@ if ( '/healthz' === $path ) {
 	echo "ok\n";
 	exit;
 }
+if ( '/status.json' === $path ) {
+	$state = new Fetch_State();
+	$check = $state->check( time(), false );
+	$data  = $check['state'];
+	header( 'Content-Type: application/json; charset=utf-8' );
+	header( 'Cache-Control: no-store' );
+	echo json_encode(
+		array(
+			'now'              => gmdate( 'c', $check['now'] ),
+			'last_attempt_at'  => $data['last_attempt_iso'],
+			'last_success_at'  => $data['last_success_iso'],
+			'last_status'      => $data['last_status'],
+			'last_http_status' => $data['last_http_status'],
+			'pack_version'     => $data['pack_version'],
+			'next_allowed_at'  => $data['next_allowed_iso'],
+			'rate_limited_until' => $data['rate_limited_until_iso'],
+			'fetch_allowed'    => $check['allowed'],
+			'reason'           => $check['reason'],
+		),
+		JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+	);
+	exit;
+}
 if ( '/meta.json' === $path ) {
 	header( 'Content-Type: application/json; charset=utf-8' );
 	echo json_encode( $store->meta(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );

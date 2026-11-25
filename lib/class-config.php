@@ -12,8 +12,9 @@ class Config {
 	public static function load( array $file_config ): void {
 		$defaults = array(
 			'wordfence_api_key'        => '',
-			'wordfence_api_url'        => 'https://www.wordfence.com/api/intelligence/v2/vulnerabilities/production',
-			'refresh_interval_seconds' => 3600,
+			'wordfence_api_url'        => 'https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production',
+			'refresh_interval_seconds' => 21600,
+			'live_force_min_interval_seconds' => 1800,
 			'max_response_bytes'       => 268435456,
 			'max_advisory_entries'     => 200000,
 			'retention_count'          => 10,
@@ -21,6 +22,7 @@ class Config {
 			'packs_dir'                => dirname( __DIR__ ) . '/data/packs',
 			'work_dir'                 => dirname( __DIR__ ) . '/data/work',
 			'log_dir'                  => dirname( __DIR__ ) . '/data/logs',
+			'state_dir'                => dirname( __DIR__ ) . '/data/state',
 			'feed_source'              => 'wordfence',
 			'http_timeout'             => 120,
 			'fixture_version_override_allowed' => false,

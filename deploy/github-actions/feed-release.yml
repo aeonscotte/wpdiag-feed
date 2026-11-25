@@ -1,0 +1,202 @@
+name: Refresh vulnerability pack
+
+on:
+  schedule:
+    # Hourly check; the durable six-hour guard decides whether to fetch.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "fixture or live"
+        required: true
+        default: fixture
+        type: choice
+        options:
+          - fixture
+          - live
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: wpdiag-feed
+  cancel-in-progress: false
+
+env:
+  MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'live' }}
+  WORDFENCE_API_KEY: ${{ secrets.WORDFENCE_API_KEY }}
+  WPDIAG_PACKS_DIR: ${{ github.workspace }}/build/packs
+  WPDIAG_WORK_DIR: ${{ github.workspace }}/build/work
+  WPDIAG_LOG_DIR: ${{ github.workspace }}/build/logs
+  WPDIAG_STATE_DIR: ${{ github.workspace }}/state
+  WPDIAG_SIGNING_SECRET_KEY_PATH: ${{ github.workspace }}/keys/signing-secret.key
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: sodium, zip, mbstring
+          ini-values: memory_limit=4G
+          coverage: none
+
+      - name: Write signing key
+        env:
+          KEY_B64: ${{ secrets.WPDIAG_SIGNING_SECRET_KEY_B64 }}
+        run: |
+          if [ -z "$KEY_B64" ]; then
+            echo "Missing repository secret WPDIAG_SIGNING_SECRET_KEY_B64" >&2
+            exit 1
+          fi
+          mkdir -p keys
+          printf '%s' "$KEY_B64" | base64 -d > "$WPDIAG_SIGNING_SECRET_KEY_PATH"
+          chmod 600 "$WPDIAG_SIGNING_SECRET_KEY_PATH"
+
+      - name: Prepare durable state branch
+        if: env.MODE == 'live'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin feed-state >/dev/null 2>&1; then
+            git fetch origin feed-state
+            git worktree add state origin/feed-state
+          else
+            git worktree add --detach state
+            (
+              cd state
+              git checkout --orphan feed-state
+              git rm -rf . >/dev/null 2>&1 || true
+            )
+          fi
+
+      - name: Preflight rate-limit guard
+        id: preflight
+        if: env.MODE == 'live'
+        run: |
+          set +e
+          php -d memory_limit=4G bin/refresh.php --preflight > preflight.json 2> preflight.err
+          CODE=$?
+          set -e
+          cat preflight.json || true
+          cat preflight.err >&2 || true
+          if [ "$CODE" -eq 3 ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Refresh skipped by the durable six-hour guard."
+            exit 0
+          fi
+          if [ "$CODE" -ne 0 ]; then
+            exit "$CODE"
+          fi
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Persist preflight state before fetch
+        if: env.MODE == 'live' && steps.preflight.outputs.should_run == 'true'
+        run: |
+          php -r '$p=$argv[1];$s=json_decode(file_get_contents($p),true);if(is_array($s)){unset($s["last_error"]);file_put_contents($p,json_encode($s,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));}' state/fetch-state.json
+          cd state
+          git add fetch-state.json
+          git commit -m "preflight $(date -u +%FT%TZ)" || true
+          git push origin HEAD:feed-state
+
+      - name: Build fixture pack
+        if: env.MODE == 'fixture'
+        run: php -d memory_limit=4G bin/refresh.php --file=fixtures/wordfence-sample.json --force
+
+      - name: Fetch live feed
+        id: refresh
+        if: env.MODE == 'live' && steps.preflight.outputs.should_run == 'true'
+        run: |
+          set +e
+          php -d memory_limit=4G bin/refresh.php --skip-guard
+          CODE=$?
+          set -e
+          echo "refresh_exit=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" -eq 2 ]; then
+            exit 1
+          fi
+          if [ "$CODE" -eq 3 ]; then
+            echo "No new pack was produced."
+          fi
+
+      - name: Build release assets
+        if: env.MODE == 'fixture' || (env.MODE == 'live' && steps.preflight.outputs.should_run == 'true' && steps.refresh.outputs.refresh_exit != '3')
+        run: php bin/build-release.php --dist=dist
+
+      - name: Publish draft release as latest
+        id: release
+        if: env.MODE == 'fixture' || (env.MODE == 'live' && steps.preflight.outputs.should_run == 'true' && steps.refresh.outputs.refresh_exit != '3')
+        run: |
+          if [ "$MODE" = "fixture" ]; then
+            TAG="feed-fixture"
+            if ! gh release view "$TAG" >/dev/null 2>&1; then
+              gh release create "$TAG" --prerelease --title "Fixture vulnerability pack" --notes "Fixture data for pipeline testing. Not production intelligence."
+            else
+              gh release edit "$TAG" --prerelease
+            fi
+            gh release upload "$TAG" \
+              dist/latest.wpdiag-pack \
+              dist/meta.json \
+              dist/status.json \
+              --clobber
+            URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/latest.wpdiag-pack"
+          else
+            PACK_VERSION=$(php -r '$i=json_decode(file_get_contents("dist/meta.json"),true);echo $i["latest"]??"";')
+            TAG="feed-live-${PACK_VERSION:-$(date -u +%Y.%m.%d.%H%M)}"
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              TAG="${TAG}-${GITHUB_RUN_ID}"
+            fi
+            gh release create "$TAG" --draft \
+              --title "Vulnerability pack ${PACK_VERSION}" \
+              --notes "Generated by GitHub Actions from the WP Security Diagnostic feed server."
+            gh release upload "$TAG" \
+              dist/latest.wpdiag-pack \
+              dist/meta.json \
+              dist/status.json
+            gh release edit "$TAG" --draft=false --latest
+            URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.wpdiag-pack"
+          fi
+          echo "pack_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "### Vulnerability feed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "${URL}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain recent live releases
+        if: env.MODE == 'live' && steps.preflight.outputs.should_run == 'true' && steps.refresh.outputs.refresh_exit != '3'
+        run: |
+          gh release list --limit 100 --json tagName,isDraft \
+            --jq '.[] | select(.isDraft == false) | .tagName | select(startswith("feed-live-"))' \
+            | tail -n +11 \
+            | while read -r tag; do
+                [ -n "$tag" ] && gh release delete "$tag" --yes --cleanup-tag
+              done
+
+      - name: Persist final fetch state
+        if: always() && env.MODE == 'live' && steps.preflight.outputs.should_run == 'true'
+        run: |
+          if [ -f "$WPDIAG_STATE_DIR/fetch-state.json" ]; then
+            php -r '$p=$argv[1];$s=json_decode(file_get_contents($p),true);if(is_array($s)){unset($s["last_error"]);file_put_contents($p,json_encode($s,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));}' state/fetch-state.json
+            cd state
+            git add fetch-state.json
+            git commit -m "state $(date -u +%FT%TZ)" || true
+            git push origin HEAD:feed-state
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Mode: ${MODE}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.release.outputs.pack_url }}" ]; then
+            echo "Feed URL: ${{ steps.release.outputs.pack_url }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Feed URL: not published in this run" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -6,9 +6,11 @@
  * @package WPSD_Feed
  */
 
-$dir      = dirname( __DIR__ ) . '/keys';
+require_once dirname( __DIR__ ) . '/lib/bootstrap.php';
+
+$sec_path = (string) Config::get( 'signing_secret_key_path' );
+$dir      = dirname( $sec_path );
 $pub_path = $dir . '/signing-public.key';
-$sec_path = $dir . '/signing-secret.key';
 
 if ( is_file( $sec_path ) ) {
 	fwrite( STDERR, "Signing key already exists at {$sec_path}\n" );
@@ -17,8 +19,9 @@ if ( is_file( $sec_path ) ) {
 	}
 	exit( 1 );
 }
-if ( ! is_dir( $dir ) ) {
-	mkdir( $dir, 0700, true );
+if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, true ) && ! is_dir( $dir ) ) {
+	fwrite( STDERR, "Could not create key directory: {$dir}\n" );
+	exit( 1 );
 }
 $keypair = sodium_crypto_sign_keypair();
 $public  = sodium_crypto_sign_publickey( $keypair );

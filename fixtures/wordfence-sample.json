@@ -1,50 +1,165 @@
-[
-  {
-    "id": "WF-1001",
+{
+  "848ccbdc-c6f1-480f-a272-cd459e706713": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706713",
     "title": "Sample plugin stored XSS",
     "description": "A stored cross-site scripting issue in the sample plugin.",
-    "severity": "high",
-    "cvss": { "base_score": 8.1 },
-    "cve": "CVE-2026-1111",
     "software": [
-      { "type": "plugin", "slug": "sample-plugin", "affected_versions": { "lower": "1.0", "upper": "2.0" }, "patched_versions": [ { "lower": "2.1", "upper": "2.1" } ] }
+      {
+        "type": "plugin",
+        "name": "Sample Plugin",
+        "slug": "sample-plugin",
+        "affected_versions": {
+          "1.0.0 - 2.0.0": {
+            "from_version": "1.0.0",
+            "from_inclusive": true,
+            "to_version": "2.0.0",
+            "to_inclusive": true
+          }
+        },
+        "patched": true,
+        "patched_versions": ["2.1.0"],
+        "remediation": "Update to version 2.1.0 or newer."
+      }
     ],
-    "published": "2026-01-02T03:04:05Z",
-    "modified": "2026-01-03T03:04:05Z"
+    "informational": false,
+    "cvss": {
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+      "score": 8.1,
+      "rating": "High"
+    },
+    "cve": "CVE-2026-1111",
+    "published": "2026-01-02 03:04:05",
+    "updated": "2026-01-03 03:04:05"
   },
-  {
-    "id": "WF-1002",
+  "848ccbdc-c6f1-480f-a272-cd459e706714": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706714",
     "title": "Sample core authentication bypass",
-    "description": "Authentication bypass in sample core range.",
-    "severity": "critical",
-    "cvss": { "base_score": 9.8 },
+    "description": "Authentication bypass in the sample core range.",
+    "software": [
+      {
+        "type": "core",
+        "name": "WordPress",
+        "slug": "wordpress",
+        "affected_versions": {
+          "6.0 - 6.4": {
+            "from_version": "6.0",
+            "from_inclusive": true,
+            "to_version": "6.4",
+            "to_inclusive": true
+          }
+        },
+        "patched": false,
+        "patched_versions": []
+      }
+    ],
+    "informational": false,
+    "cvss": {
+      "score": 9.8,
+      "rating": "Critical"
+    },
     "cve": "CVE-2026-2222",
-    "software": [
-      { "type": "core", "slug": "wordpress", "affected_versions": { "lower": "6.0", "upper": "6.4" } }
-    ]
+    "published": "2026-01-02 03:04:05",
+    "updated": "2026-01-03 03:04:05"
   },
-  {
-    "id": "WF-1003",
+  "848ccbdc-c6f1-480f-a272-cd459e706715": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706715",
     "title": "Sample theme file inclusion",
-    "description": "Local file inclusion in sample theme.",
-    "severity": "low",
+    "description": "Local file inclusion in the sample theme.",
     "software": [
-      { "type": "theme", "slug": "sample-theme", "affected_ranges": [ { "lower": "1.0", "upper": "1.2" }, { "lower": "1.5", "upper": "1.5" } ] }
-    ]
+      {
+        "type": "theme",
+        "name": "Sample Theme",
+        "slug": "sample-theme",
+        "affected_versions": {
+          "1.0 - 1.2": {
+            "from_version": "1.0",
+            "from_inclusive": true,
+            "to_version": "1.2",
+            "to_inclusive": true
+          },
+          "1.5": {
+            "from_version": "1.5",
+            "from_inclusive": true,
+            "to_version": "1.5",
+            "to_inclusive": true
+          }
+        },
+        "patched": false,
+        "patched_versions": []
+      }
+    ],
+    "informational": false,
+    "cvss": {
+      "score": 3.1,
+      "rating": "Low"
+    },
+    "cve": null,
+    "published": "2026-01-02 03:04:05"
   },
-  {
-    "id": "WF-1004",
+  "848ccbdc-c6f1-480f-a272-cd459e706716": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706716",
     "title": "Record without software",
     "description": "This record must be skipped.",
-    "severity": "medium"
+    "software": [],
+    "informational": false,
+    "cvss": {
+      "score": 5.0,
+      "rating": "Medium"
+    }
   },
-  {
-    "id": "WF-1005",
+  "848ccbdc-c6f1-480f-a272-cd459e706717": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706717",
     "title": "CVSS-only severity record",
-    "description": "Severity derived from CVSS.",
-    "cvss": { "base_score": 7.5 },
+    "description": "Severity is derived from the CVSS score because the rating is absent.",
     "software": [
-      { "type": "plugin", "slug": "cvss-plugin", "affected_versions": { "lower": "1.0", "upper": "" } }
-    ]
+      {
+        "type": "plugin",
+        "name": "CVSS Plugin",
+        "slug": "cvss-plugin",
+        "affected_versions": {
+          "*": {
+            "from_version": "*",
+            "from_inclusive": true,
+            "to_version": "*",
+            "to_inclusive": true
+          }
+        },
+        "patched": false,
+        "patched_versions": []
+      }
+    ],
+    "informational": false,
+    "cvss": {
+      "score": 7.5
+    },
+    "cve": null,
+    "published": "2026-01-02 03:04:05"
+  },
+  "848ccbdc-c6f1-480f-a272-cd459e706718": {
+    "id": "848ccbdc-c6f1-480f-a272-cd459e706718",
+    "title": "Informational record",
+    "description": "This record must be skipped.",
+    "software": [
+      {
+        "type": "plugin",
+        "name": "Informational Plugin",
+        "slug": "informational-plugin",
+        "affected_versions": {
+          "1.0 - 2.0": {
+            "from_version": "1.0",
+            "from_inclusive": true,
+            "to_version": "2.0",
+            "to_inclusive": true
+          }
+        },
+        "patched": false,
+        "patched_versions": []
+      }
+    ],
+    "informational": true,
+    "cvss": {
+      "score": 2.0,
+      "rating": "Low"
+    }
   }
-]
+}

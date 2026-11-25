@@ -6,4 +6,11 @@ data/work/*
 !data/work/.gitkeep
 data/logs/*
 !data/logs/.gitkeep
+data/state/*
+!data/state/.gitkeep
+build/
+dist/
+/state/
+preflight.json
+preflight.err
 config.php
