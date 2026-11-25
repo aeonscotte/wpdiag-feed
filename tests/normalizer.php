@@ -54,6 +54,78 @@ normalizer_assert( 'severity derived from score', 'high' === ( $cvss['severity']
 
 normalizer_assert( 'informational record excluded', ! isset( $by_key['plugin:informational-plugin'] ) );
 
+// Multi-branch fixed-version selection.
+$multi = array(
+	'id'       => 'MULTI-BRANCH-1',
+	'title'    => 'Multi-branch core advisory',
+	'software' => array(
+		array(
+			'type'              => 'core',
+			'slug'              => 'wordpress',
+			'name'              => 'WordPress',
+			'affected_versions' => array(
+				'4.1 - 4.1.34' => array(
+					'from_version'  => '4.1',
+					'from_inclusive' => true,
+					'to_version'    => '4.1.34',
+					'to_inclusive'  => false,
+				),
+				'4.2 - 4.2.31' => array(
+					'from_version'  => '4.2',
+					'from_inclusive' => true,
+					'to_version'    => '4.2.31',
+					'to_inclusive'  => true,
+				),
+				'4.3 - 4.3.27' => array(
+					'from_version'  => '4.3',
+					'from_inclusive' => true,
+					'to_version'    => '4.3.27',
+					'to_inclusive'  => true,
+				),
+				'4.4 - 4.4.26' => array(
+					'from_version'  => '4.4',
+					'from_inclusive' => true,
+					'to_version'    => '4.4.26',
+					'to_inclusive'  => true,
+				),
+				'5.0 - *' => array(
+					'from_version'  => '5.0',
+					'from_inclusive' => true,
+					'to_version'    => '*',
+					'to_inclusive'  => true,
+				),
+			),
+			'patched_versions'  => array( '4.1.34', '4.2.20', '4.2.32', '4.3.28', '4.4.27' ),
+		),
+	),
+	'cvss' => array( 'score' => 9.0, 'rating' => 'Critical' ),
+);
+$multi_out   = ( new Feed_Normalizer() )->normalize( array( $multi ) );
+$multi_fixed = array();
+foreach ( $multi_out['components'][0]['advisories'] as $advisory ) {
+	$multi_fixed[ $advisory['affected_from'] . '-' . $advisory['affected_to'] ] = $advisory['fixed_version'];
+}
+normalizer_assert( 'multi-branch: exclusive upper fix', '4.1.34' === ( $multi_fixed['4.1-4.1.34'] ?? null ) );
+normalizer_assert( 'multi-branch: 4.2 fix', '4.2.32' === ( $multi_fixed['4.2-4.2.31'] ?? null ) );
+normalizer_assert( 'multi-branch: 4.3 fix', '4.3.28' === ( $multi_fixed['4.3-4.3.27'] ?? null ) );
+normalizer_assert( 'multi-branch: 4.4 fix', '4.4.27' === ( $multi_fixed['4.4-4.4.26'] ?? null ) );
+normalizer_assert( 'multi-branch: unbounded has no fix', null === ( $multi_fixed['5.0-'] ?? null ) );
+
+// A patched version inside the affected range is not a fix.
+$inside = $multi;
+$inside['id'] = 'INSIDE-1';
+$inside['software'][0]['affected_versions'] = array(
+	'1.0 - 2.0' => array(
+		'from_version'  => '1.0',
+		'from_inclusive' => true,
+		'to_version'    => '2.0',
+		'to_inclusive'  => true,
+	),
+);
+$inside['software'][0]['patched_versions'] = array( '1.5', '2.1' );
+$inside_out = ( new Feed_Normalizer() )->normalize( array( $inside ) );
+normalizer_assert( 'patched version inside range ignored', '2.1' === ( $inside_out['components'][0]['advisories'][0]['fixed_version'] ?? null ) );
+
 if ( $failures > 0 ) {
 	fwrite( STDERR, "Normalizer tests: FAIL ({$failures})\n" );
 	exit( 1 );

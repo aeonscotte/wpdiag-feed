@@ -61,13 +61,13 @@ class Feed_Normalizer {
 					$skipped++;
 					continue;
 				}
-				$ranges = $this->ranges( $entry );
+				$ranges  = $this->ranges( $entry );
 				if ( empty( $ranges ) ) {
 					$skipped++;
 					continue;
 				}
-				$fixed = $this->fixed_version( $entry );
-				$name  = (string) ( $entry['name'] ?? $record['name'] ?? $slug );
+				$patched = $this->patched_versions( $entry );
+				$name    = (string) ( $entry['name'] ?? $record['name'] ?? $slug );
 
 				foreach ( $ranges as $range ) {
 					if ( $total >= $max ) {
@@ -78,6 +78,7 @@ class Feed_Normalizer {
 						$skipped++;
 						continue;
 					}
+					$fixed = $this->fixed_version_for_range( $patched, $range );
 					$total++;
 					$key = $type . '|' . $slug;
 					if ( ! isset( $components[ $key ] ) ) {
@@ -220,24 +221,27 @@ class Feed_Normalizer {
 			return '';
 		}
 		$value = trim( (string) $value );
-		return '*' === $value ? '' : $value;
+		if ( '*' === $value ) {
+			return '';
+		}
+		return ltrim( $value, 'vV' );
 	}
 
 	/**
-	 * Select the smallest patched version.
+	 * Extract usable patched versions.
 	 *
 	 * @param array $entry Software entry.
-	 * @return string|null
+	 * @return array
 	 */
-	private function fixed_version( array $entry ): ?string {
+	private function patched_versions( array $entry ): array {
 		$patched = $entry['patched_versions'] ?? null;
 		if ( is_string( $patched ) || is_numeric( $patched ) ) {
 			$patched = array( $patched );
 		}
 		if ( ! is_array( $patched ) ) {
-			return null;
+			return array();
 		}
-		$fixed = null;
+		$out = array();
 		foreach ( $patched as $item ) {
 			$value = '';
 			if ( is_array( $item ) ) {
@@ -245,15 +249,69 @@ class Feed_Normalizer {
 			} elseif ( is_string( $item ) || is_numeric( $item ) ) {
 				$value = (string) $item;
 			}
-			$value = trim( $value );
-			if ( '' === $value || '*' === $value ) {
+			$value = $this->version_string( $value );
+			if ( '' !== $value && ! in_array( $value, $out, true ) ) {
+				$out[] = $value;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Select the first fixed version for one affected range.
+	 *
+	 * A patched version that is still inside the affected range is not a fix.
+	 * The smallest patched version that is outside the range and at or above
+	 * the lower bound belongs to that branch.
+	 *
+	 * @param array $patched Patched versions.
+	 * @param array $range   Normalized range.
+	 * @return string|null
+	 */
+	private function fixed_version_for_range( array $patched, array $range ): ?string {
+		if ( '' === $range['to'] ) {
+			// Unbounded above: there is no determinable fixed release.
+			return null;
+		}
+		$fixed = null;
+		foreach ( $patched as $version ) {
+			if ( $this->in_range( $version, $range ) ) {
 				continue;
 			}
-			if ( null === $fixed || version_compare( $value, $fixed, '<' ) ) {
-				$fixed = $value;
+			if ( '' !== $range['from'] && version_compare( $version, $range['from'], '<' ) ) {
+				continue;
+			}
+			if ( null === $fixed || version_compare( $version, $fixed, '<' ) ) {
+				$fixed = $version;
 			}
 		}
 		return $fixed;
+	}
+
+	/**
+	 * Is a version inside an affected range?
+	 *
+	 * @param string $version Version.
+	 * @param array  $range   Normalized range.
+	 * @return bool
+	 */
+	private function in_range( string $version, array $range ): bool {
+		if ( '' === $range['from'] && '' === $range['to'] ) {
+			return true;
+		}
+		if ( '' !== $range['from'] ) {
+			$cmp = version_compare( $version, $range['from'] );
+			if ( $range['from_inclusive'] ? $cmp < 0 : $cmp <= 0 ) {
+				return false;
+			}
+		}
+		if ( '' !== $range['to'] ) {
+			$cmp = version_compare( $version, $range['to'] );
+			if ( $range['to_inclusive'] ? $cmp > 0 : $cmp >= 0 ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
