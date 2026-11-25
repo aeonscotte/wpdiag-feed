@@ -1,0 +1,14 @@
+{
+    "schema": 1,
+    "last_attempt_at": 1795609877,
+    "last_attempt_iso": "2026-11-25T12:31:17+00:00",
+    "last_success_at": 0,
+    "last_success_iso": null,
+    "last_status": "in_progress",
+    "last_http_status": 0,
+    "pack_version": null,
+    "next_allowed_at": 1795631477,
+    "next_allowed_iso": "2026-11-25T18:31:17+00:00",
+    "rate_limited_until": 0,
+    "rate_limited_until_iso": null
+}
