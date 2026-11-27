@@ -1,14 +1,14 @@
 {
     "schema": 1,
-    "last_attempt_at": 1795792068,
-    "last_attempt_iso": "2026-11-27T15:07:48+00:00",
+    "last_attempt_at": 1795822110,
+    "last_attempt_iso": "2026-11-27T23:28:30+00:00",
     "last_success_at": 1795792073,
     "last_success_iso": "2026-11-27T15:07:53+00:00",
-    "last_status": "ok",
-    "last_http_status": 200,
+    "last_status": "in_progress",
+    "last_http_status": 0,
     "pack_version": "2026.11.27.1507",
-    "next_allowed_at": 1795813668,
-    "next_allowed_iso": "2026-11-27T21:07:48+00:00",
+    "next_allowed_at": 1795843710,
+    "next_allowed_iso": "2026-11-28T05:28:30+00:00",
     "rate_limited_until": 0,
     "rate_limited_until_iso": null
 }
